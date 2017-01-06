@@ -32,8 +32,8 @@
 
 #define PI 3.14159265
 
-#define ROWS 8  // Number of rows of asteroids.
-#define COLUMNS 3 // Number of columns of asteroids.
+#define ROWS 2  // Number of rows of asteroids.
+#define COLUMNS 2 // Number of columns of asteroids.
 #define FILL_PROBABILITY 100 // Percentage probability that a particular row-column slot will be 
                              // filled with an asteroid. It should be an integer between 0 and 100.
 
@@ -50,7 +50,9 @@ static GLuint bullet;     //Display for bullet test
 static int numShots = 0;
 static int bulletsQuant = 1000000;
 int countBullets = 0;
-bool isShotting = 0; 
+bool isShotting = 0;
+int NumAliens = ROWS*COLUMNS;
+int points = 0;
 
 // Routine to draw a bitmap character string.
 void writeBitmapString(void *font, char *string)
@@ -231,7 +233,7 @@ void setup(void)
 	  glTranslatef(0.0, 0.0, 35.0);
 	  glRotatef(180.0, 0.0, 1.0, 0.0); // To make the spacecraft point down the z-axis initially.
 	  glColor3f (1.0, 1.0, 1.0); 
-      glutSolidCone(spacecraft_height*0.6, spacecraft_height*2, spacecraft_height, spacecraft_height*2);//Front 5, 10, 4.5, 50
+     glutSolidCone(spacecraft_height*0.6, spacecraft_height*2, spacecraft_height, spacecraft_height*2);//Front 5, 10, 4.5, 50
 	  glPopMatrix();
 	  glPushMatrix();
 	  glTranslatef(0.0, 0.0, 33.0);
@@ -321,7 +323,7 @@ void addBullet(void){
    glEndList();
      
    glPushMatrix();
-   glTranslatef(0.0, 0.0, 35.0);
+   glTranslatef(0.0, 0.0, 32.0);
    glTranslatef(isShotting ? xValBullet : xVal, 0.0, isShotting ? zValBullet : zVal);
    glRotatef(angleBullet, 0.0, 1.0, 0.0);
    glCallList(bullet + numShots);
@@ -344,12 +346,20 @@ void idle(void){
          angleBullet = tempAngle;
          glutPostRedisplay();                                  
      }
+     if(zValBullet < -300.0){
+           zValBullet = zVal;
+           xValBullet = xVal;
+           isShotting = 1;
+           glDeleteLists(bullet + numShots, 1);
+	  } 
      if(asteroidCraftCollision(xValBullet,zValBullet,1.0)){
            printf("Alien Destroyed\n");                                                
-           zValBullet = 0.0;
-           xValBullet = 0.0;
+           zValBullet = zVal;
+           xValBullet = xVal;
            isShotting = 0;
            glDeleteLists(bullet + numShots, 1);
+           NumAliens--;
+           points+=10;
      }
 }
      
@@ -378,12 +388,22 @@ void drawScene(void)
    glLoadIdentity();
 
    // Write text in isolated (i.e., before gluLookAt) translate block.
+//   glPushMatrix();
+//   glColor3f(1.0, 0.0, 0.0);
+//   glRasterPos3f(-28.0, 25.0, -30.0);
+//   glRasterPos3f(-28.0, 23.0, -30.0);
+//   char *intstr = itoa(points, intstr, 10);
+//   std::string pontuation = "Pontuation:\n" + points; 
+//   writeBitmapString((void*)font, *intstr);
+//   glPopMatrix();
+   
    glPushMatrix();
-   glColor3f(1.0, 0.0, 0.0);
-   glRasterPos3f(-28.0, 25.0, -30.0);
-   glRasterPos3f(-28.0, 23.0, -30.0);
-   if (isCollision) writeBitmapString((void*)font, "Cannot - will crash!");
+   glColor3f(1.0, 1.0, 1.0);
+   glRasterPos3f(-5.0, 25.0, -30.0);
+   glRasterPos3f(-5.0, 23.0, -30.0);
+   if (!NumAliens) writeBitmapString((void*)font, "YOU WIN!!!!!");
    glPopMatrix();
+   
 
    // Fixed camera.
 //   gluLookAt(0.0, 10.0, 20.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0);
@@ -409,7 +429,7 @@ void drawScene(void)
    
    addBullet();
    
-   printf("xVal - %0.2f zVal - %0.2f xBullet - %0.2f zBullet - %0.2f\n", xVal, zVal, xValBullet, zValBullet);
+   printf("xVal -> %0.2f zVal -> %0.2f xBullet -> %0.2f zBullet -> %0.2f %d\n", xVal, zVal, xValBullet, zValBullet, NumAliens);
 
    glutSwapBuffers();
 }
@@ -451,7 +471,7 @@ void keyInput(unsigned char key, int x, int y)
 void specialKeyInput(int key, int x, int y)
 {
    float tempxVal = xVal, tempzVal = zVal, tempAngle = angle;
-   float x_increment = 5.0;
+   float x_increment = 0.0;
 
    // Compute next position.
    if (key == GLUT_KEY_PAGE_DOWN) tempAngle = angle + 5.0; //turn clockwise
@@ -485,10 +505,21 @@ void specialKeyInput(int key, int x, int y)
    // Move spacecraft to next position only if there will not be collision with an asteroid.
    if (!asteroidCraftCollision(tempxVal, tempzVal, tempAngle))
    {
-      isCollision = 0;
-      xVal = tempxVal;
-	  zVal = tempzVal;
-	  angle = tempAngle;
+		if(!isShotting){
+	      isCollision = 0;
+	      xVal = tempxVal;
+		   zVal = tempzVal;
+		   zValBullet = tempzVal;
+		   xValBullet = tempxVal;
+		   angleBullet = tempAngle;
+		   angle = tempAngle;
+		}
+		else{
+	      isCollision = 0;
+	      xVal = tempxVal;
+		   zVal = tempzVal;
+		   angle = tempAngle;			
+		}
    }
    else isCollision = 1;
 
