@@ -34,10 +34,10 @@
 
 #define PI 3.14159265
 
-#define ALIEN_SHOT_DELAY 100000 //Delay for the alien's shot
+#define ALIEN_SHOT_DELAY 50000 //Delay for the alien's shot
 #define PLAYER_SHOT_DELAY 100 //Delay for the spacecraft's shot
 #define ROWS 1  // Number of rows of asteroids.
-#define COLUMNS 1 // Number of columns of asteroids.
+#define COLUMNS 5 // Number of columns of asteroids.
 #define FILL_PROBABILITY 100 // Percentage probability that a particular row-column slot will be 
                              // filled with an asteroid. It should be an integer between 0 and 100.
 
@@ -342,8 +342,10 @@ void alienShot(float alien_x, float alien_y, float alien_z){//Adds a alien's sho
 }
 
 void idle(void){//Idle function for the Glut. Updates the shots for spacecraft and aliens
+
      alienShotDelay++;//Controling the alien's shot delay
      playerShotDelay++;//Controlling the player's shot
+     
      //Make a translation for a spacecraft's shot.
      //
      if(zValSpacecraftBullet > -300 && isShotting){ 
@@ -362,6 +364,8 @@ void idle(void){//Idle function for the Glut. Updates the shots for spacecraft a
            glutPostRedisplay();                                  
      }
      
+     //Verify if is necessary add another bullet to the screen
+     //
      if(zValSpacecraftBullet == -300.0){
            zValSpacecraftBullet = zVal;
            xValSpacecraftBullet = xVal;
@@ -370,7 +374,9 @@ void idle(void){//Idle function for the Glut. Updates the shots for spacecraft a
            glDeleteLists(bulletSpacecraft + shotsSpacecraft, 1);
            glutPostRedisplay();
      }
-       
+     
+     //Check if the spacecraft shot collides with an alien 
+     //  
      if(asteroidCraftCollision(xValSpacecraftBullet,zValSpacecraftBullet,1.0)){
            printf("Alien Destroyed\n");                                                
            zValSpacecraftBullet = zVal;
@@ -382,7 +388,7 @@ void idle(void){//Idle function for the Glut. Updates the shots for spacecraft a
            glutPostRedisplay();
            
      }
-     //Make a translation for an alien's shot.
+     //Make a translation for an alien's shot. (Debugging)
      //
      if(alienShotDelay == ALIEN_SHOT_DELAY){
                        
@@ -408,7 +414,7 @@ void idle(void){//Idle function for the Glut. Updates the shots for spacecraft a
            glutPostRedisplay();           
      }
           
-     //Updates the alien's shot
+     //Updates the alien's shot (Debugging)
      //
      if(zValAlienBullet > 800.0 || alienShotDelay > ALIEN_SHOT_DELAY){
            alienShotting = 0;            
@@ -422,11 +428,12 @@ void idle(void){//Idle function for the Glut. Updates the shots for spacecraft a
            glutPostRedisplay();
      }
      //Function for the collision with the spacecraft (Debbuging) 
-//     if(checkSpheresIntersection(xVal, 0.0, zVal, 7.0, axis_alien[0], axis_alien[1], axis_alien[2], actual_alien_radius) == 1){
+//     if(checkSpheresIntersection(xVal, 0.0, zVal, 2.0, xValAlienBullet, 0.0, zValAlienBullet, actual_alien_radius) == 1){
 //           glDeleteLists(spacecraft, 1);
+//           glDeleteLists(bulletSpacecraft, bulletsQuant);
 //           game_over = 1;
-//           glutPostRedisplay();
-//                                       
+//           shotsSpacecraft = 0;
+//           glutPostRedisplay();                                      
 //     }
 }
      
@@ -496,8 +503,8 @@ void drawScene(void)
    shotsAliens++;
    alienShot(axis[0], axis[1], axis[2]);
 //   alienShot(arrayAsteroids[0][0].getCenterX(), arrayAsteroids[0][0].getCenterY(), arrayAsteroids[0][0].getCenterZ());
-   printf("xAlienShot -> %0.2f zAlienShot -> %0.2f AlienDelay -> %d AlienShots -> %d\n", 
-          xValAlienBullet, zValAlienBullet, alienShotDelay, shotsAliens);
+   printf("xAlienShot -> %0.2f zAlienShot -> %0.2f xVal -> %d zVal -> %d   %d\n", 
+          xValAlienBullet, zValAlienBullet, alienShotDelay, shotsAliens, alienShotDelay);
    glutSwapBuffers();
 }
 
@@ -525,9 +532,11 @@ void keyInput(unsigned char key, int x, int y)
          exit(0);
          break;
       case 32:
-          isShotting = 1;
-          shotsSpacecraft++;
-          addBullet();
+          if(!game_over){  
+             isShotting = 1;
+             shotsSpacecraft++;
+             addBullet();
+          }   
          break;     
       default:
          break;
