@@ -23,6 +23,8 @@
 #include <cstdlib>
 #include <cmath>
 #include <iostream>
+#include <time.h>
+#include <vector>
 
 #ifdef __APPLE__
 #  include <GLUT/glut.h>
@@ -32,8 +34,10 @@
 
 #define PI 3.14159265
 
-#define ROWS 2  // Number of rows of asteroids.
-#define COLUMNS 2 // Number of columns of asteroids.
+#define ALIEN_SHOT_DELAY 100000 //Delay for the alien's shot
+#define PLAYER_SHOT_DELAY 100 //Delay for the spacecraft's shot
+#define ROWS 1  // Number of rows of asteroids.
+#define COLUMNS 1 // Number of columns of asteroids.
 #define FILL_PROBABILITY 100 // Percentage probability that a particular row-column slot will be 
                              // filled with an asteroid. It should be an integer between 0 and 100.
 
@@ -42,15 +46,35 @@ using namespace std;
 // Globals.
 static long font = (long)GLUT_BITMAP_TIMES_ROMAN_24; // Font selection.
 static int width, height; // Size of the OpenGL window.
-static float angle = 0.0, angleBullet = 0.0; // Angle of the spacecraft.
-static float xVal = 0, zVal = 0, xValBullet = 0, zValBullet = 0; // Co-ordinates for the spacecraft and the bullet.
+static float angle = 0.0; // Angle of the spacecraft.
+static float xVal = 0, zVal = 0; // Co-ordinates for the spacecraft 
 static int isCollision = 0; // Is there collision between the spacecraft and an asteroid?
+static int game_over = 0;   //Flag for game over indication
+
+static long int bulletsQuant = 1000000000;  //Using for the spacecraft bullets display lists
+
+//Using for controlling the spacecraft
+static float xValSpacecraftBullet = 0, zValSpacecraftBullet = 0, angleSpacecraftBullet = 0.0; //Co-ordinates for the spacecraft's bullet
 static unsigned int spacecraft; // Display lists base index.
-static GLuint bullet;     //Display for bullet test
-static int numShots = 0;
-static int bulletsQuant = 1000000;
-int countBullets = 0;
-bool isShotting = 0;
+int playerShotDelay = 0;        //Control the player's shot
+static GLuint bulletSpacecraft;     //Display for spacecraft bullet
+static int shotsSpacecraft = 0;     //Counter for the spacecraft shots
+bool isShotting = 0;                //Using as a flag for the player's shot
+float spacecraft_height = 5.0;
+
+
+//Using for cotrolling the aliens.
+static float xValAlienBullet = 0, zValAlienBullet = 0, angleAlienBullet = 0.0; //Co-ordinates for the alien's bullet
+static GLuint bulletAlien;
+static int shotsAliens = 0;
+bool alienShotting = 0;
+int alienShotDelay = 0;
+vector<float> axis_alien;
+float actual_alien_radius = 0.0;
+float asteroids_radius = 3.0;
+
+
+
 int NumAliens = ROWS*COLUMNS;
 int points = 0;
 
@@ -60,66 +84,6 @@ void writeBitmapString(void *font, char *string)
    char *c;
    for (c = string; *c != '\0'; c++) glutBitmapCharacter(font, *c);
 } 
-
-class Bullet
-{
-public:
-   Bullet();
-   Bullet(float x, float y, float z, unsigned char colorR,
-          unsigned char colorG, unsigned char colorB);
-   float getCenterX() {
-         return centerX;
-   }
-   float getCenterY() {
-         return centerY;
-   }          
-   float getCenterZ() {
-         return centerZ;
-   }          
-   float getRadius() {
-         return radius;
-   }
-   void draw();
-   
-private:
-   float centerX, centerY, centerZ, radius;
-   unsigned char color[3];
-};
-
-Bullet::Bullet()
-{
-   centerX = 0.0;
-   centerY = 0.0;
-   centerZ = 0.0; 
-   radius = 0.0; 
-   color[0] = 0;
-   color[1] = 0;
-   color[2] = 0;
-}
-
-Bullet::Bullet(float x, float y, float z, unsigned char colorR, 
-               unsigned char colorG, unsigned char colorB)
-{
-   centerX = x;
-   centerY = y;
-   centerZ = z; 
-   radius = 0.6;
-   color[0] = colorR;
-   color[1] = colorG;
-   color[2] = colorB;
-}
-
-void Bullet::draw()
-{
-      glPushMatrix();
-      glTranslatef(centerX, centerY, centerZ);
-      glColor3ubv (color); 
-      glutSolidSphere(radius, 10, 10);
-      glPopMatrix();
-}
-
-Bullet spacecraftBulletList[100000];
-int spacecraftBulletNums = 0;
 
 // Asteroid class.
 class Asteroid
@@ -224,8 +188,6 @@ Asteroid arrayAsteroids[ROWS][COLUMNS]; // Global array of asteroids.
 void setup(void) 
 {
    int i, j;
-   float asteroids_radius = 3.0;
-   float spacecraft_height = 5.0;
 
    spacecraft = glGenLists(1);
    glNewList(spacecraft, GL_COMPILE);
@@ -233,35 +195,52 @@ void setup(void)
 	  glTranslatef(0.0, 0.0, 35.0);
 	  glRotatef(180.0, 0.0, 1.0, 0.0); // To make the spacecraft point down the z-axis initially.
 	  glColor3f (1.0, 1.0, 1.0); 
-     glutSolidCone(spacecraft_height*0.6, spacecraft_height*2, spacecraft_height, spacecraft_height*2);//Front 5, 10, 4.5, 50
+      glutSolidCone(spacecraft_height*0.6, 
+                    spacecraft_height*2.0, 
+                    (GLint)spacecraft_height, 
+                    (GLint)spacecraft_height*2);//Front 5, 10, 4.5, 50
 	  glPopMatrix();
 	  glPushMatrix();
 	  glTranslatef(0.0, 0.0, 33.0);
 	  glRotatef(90.0, 0.0, 1.0, 0.0); 
 	  glRotatef(90.0, 0.0, 0.0, 1.0);
 	  glColor3f (1.0, 1.0, 1.0); 
-      glutSolidCone(spacecraft_height*0.8, spacecraft_height*2, spacecraft_height*0.6, spacecraft_height*10);//Left Wing
+      glutSolidCone(spacecraft_height*0.8, 
+                    spacecraft_height*2.0, 
+                    (GLint)(spacecraft_height*0.6), 
+                    (GLint)(spacecraft_height*10));//Left Wing
 	  glPopMatrix();
 	  glPushMatrix();
 	  glTranslatef(0.0, 0.0, 33.0);
 	  glRotatef(-90.0, 0.0, 1.0, 0.0); 
 	  glRotatef(90.0, 0.0, 0.0, 1.0);
 	  glColor3f (1.0, 1.0, 1.0); 
-      glutSolidCone(spacecraft_height*0.8, spacecraft_height*2, spacecraft_height*0.6, spacecraft_height*10);//Right Wing
+      glutSolidCone(spacecraft_height*0.8, 
+                    spacecraft_height*2.0, 
+                    (GLint)(spacecraft_height*0.6), 
+                    (GLint)(spacecraft_height*10));//Right Wing
 	  glPopMatrix();
    glEndList();
    
-   bullet = glGenLists(10000000);
-   glNewList(bullet, GL_COMPILE);
+   bulletSpacecraft = glGenLists(bulletsQuant);
+   glNewList(bulletSpacecraft, GL_COMPILE);
 	  glPushMatrix();
 	  glColor3f (1.0, 1.0, 1.0); 
       glutSolidSphere(0.6,10,10);//Front 5, 10, 4.5, 50
 	  glPopMatrix();
    glEndList();
+   
+   bulletAlien = glGenLists(bulletsQuant);
+   glNewList(bulletAlien, GL_COMPILE);
+      glPushMatrix();
+      glColor3f(0.0, 1.0, 1.0);
+      glutSolidSphere(0.6, 10, 10);
+      glPopMatrix();
+   glEndList();
 
    // Initialize global arrayAsteroids.
-   for (j = 0; j<COLUMNS; j++)
-      for (i = 0; i<ROWS; i++)
+   for (j = 0; j < COLUMNS; j++)
+      for (i = 0; i < ROWS; i++)
 	     if (rand()%100 < FILL_PROBABILITY) 
          // If rand()%100 >= FILL_PROBABILITY the default constructor asteroid remains in the slot 
 		 // which indicates that there is no asteroid there because the default's radius is 0.
@@ -269,16 +248,17 @@ void setup(void)
 			// Position the asteroids depending on if there is an even or odd number of columns
 			// so that the spacecraft faces the middle of the asteroid field.
 			if (COLUMNS%2) // Odd number of columns.
-	           arrayAsteroids[i][j] = Asteroid( 30.0*(-COLUMNS/2 + j), 0.0, -40.0 - 30.0*i, asteroids_radius, 
-			                                    rand()%256, rand()%256, rand()%256);
+	           arrayAsteroids[i][j] = Asteroid(30.0*(-COLUMNS/2 + j), 0.0, 
+                                               -40.0 - 30.0*i, asteroids_radius, 
+                                               rand()%256, rand()%256, rand()%256);
 			else // Even number of columns.
-			   arrayAsteroids[i][j] = Asteroid( 15 + 30.0*(-COLUMNS/2 + j), 0.0, -40.0 - 30.0*i, asteroids_radius, 
-			                                    rand()%256, rand()%256, rand()%256);
+			   arrayAsteroids[i][j] = Asteroid(15 + 30.0*(-COLUMNS/2 + j), 0.0, 
+                                               -40.0 - 30.0*i, asteroids_radius, 
+                                               rand()%256, rand()%256, rand()%256);
 		 }
    //Add GLEnable for lighting	 
    glEnable(GL_LIGHTING);
    glEnable(GL_LIGHT0);
-   //Finish Lighting GLEnable
    glEnable(GL_DEPTH_TEST);
    glClearColor (0.0, 0.0, 0.0, 0.0);
 }
@@ -288,7 +268,7 @@ void setup(void)
 int checkSpheresIntersection(float x1, float y1, float z1, float r1, 
 						     float x2, float y2, float z2, float r2)
 {
-   return ( (x1-x2)*(x1-x2) + (y1-y2)*(y1-y2) + (z1-z2)*(z1-z2) <= (r1+r2)*(r1+r2) );
+   return ((x1-x2)*(x1-x2) + (y1-y2)*(y1-y2) + (z1-z2)*(z1-z2) <= (r1+r2)*(r1+r2));
 }
 
 // Function to check if the spacecraft collides with an asteroid when the center of the base
@@ -314,8 +294,8 @@ int asteroidCraftCollision(float x, float z, float a)
    return 0;
 }
 
-void addBullet(void){
-   glNewList(bullet + numShots, GL_COMPILE);
+void addBullet(void){ //Adds a bullet for the spacecraft
+   glNewList(bulletSpacecraft + shotsSpacecraft, GL_COMPILE);
 	  glPushMatrix();
 	  glColor3f (1.0, 1.0, 1.0); 
       glutSolidSphere(0.6,10,10);
@@ -324,43 +304,130 @@ void addBullet(void){
      
    glPushMatrix();
    glTranslatef(0.0, 0.0, 32.0);
-   glTranslatef(isShotting ? xValBullet : xVal, 0.0, isShotting ? zValBullet : zVal);
-   glRotatef(angleBullet, 0.0, 1.0, 0.0);
-   glCallList(bullet + numShots);
+   glTranslatef(isShotting ? xValSpacecraftBullet : xVal, 0.0, 
+                isShotting ? zValSpacecraftBullet : zVal);
+   glRotatef(angleSpacecraftBullet, 0.0, 1.0, 0.0);
+   glCallList(bulletSpacecraft + shotsSpacecraft);
    glPopMatrix();
 }
 
-void idle(void){
-     if(zValBullet > -300.0 && isShotting){
-         int temp_x = xValBullet, temp_z = zValBullet, tempAngle = angle;
+
+vector<float> alienPosition(){//Returns an aliens's coordinate.
+     srand(time(NULL));
+     vector<float> axis(3);
+     int row = (int)(rand()%ROWS);
+     int cols = (int)(rand()%COLUMNS);
+     actual_alien_radius = arrayAsteroids[row][cols].getRadius();
+     axis[0] = arrayAsteroids[row][cols].getCenterX();
+     axis[1] = arrayAsteroids[row][cols].getCenterY();
+     axis[2] = arrayAsteroids[row][cols].getCenterZ();     
+     return axis;
+}     
+
+void alienShot(float alien_x, float alien_y, float alien_z){//Adds a alien's shot
+   glNewList(bulletAlien + shotsAliens, GL_COMPILE);
+	  glPushMatrix();
+	  glColor3f (0.0, 1.0, 1.0); 
+      glutSolidSphere(0.6,10,10);
+	  glPopMatrix();
+   glEndList();
+     
+   glPushMatrix();
+   glTranslatef(alien_x, alien_y, alien_z);
+   glTranslatef(xValAlienBullet, 0.0, zValAlienBullet);
+   glRotatef(angleSpacecraftBullet, 0.0, 1.0, 0.0);
+   glCallList(bulletAlien + shotsAliens);
+   glPopMatrix();
+   
+}
+
+void idle(void){//Idle function for the Glut. Updates the shots for spacecraft and aliens
+     alienShotDelay++;//Controling the alien's shot delay
+     playerShotDelay++;//Controlling the player's shot
+     //Make a translation for a spacecraft's shot.
+     //
+     if(zValSpacecraftBullet > -300 && isShotting){ 
+           float temp_x = xValSpacecraftBullet, temp_z = zValSpacecraftBullet, tempAngle = angle;
          
-         temp_x = xValBullet - sin(angleBullet * PI/180.0);
-         temp_z = zValBullet - cos(angleBullet * PI/180.0);
-         tempAngle = angleBullet;
+           temp_x = xValSpacecraftBullet - sin(angleSpacecraftBullet * PI/180.0);
+           temp_z = zValSpacecraftBullet - cos(angleSpacecraftBullet * PI/180.0);
+           tempAngle = angleSpacecraftBullet;
          
-         if (tempAngle > 360.0) tempAngle -= 360.0;
-         if (tempAngle < 0.0) tempAngle += 360.0;
+           if (tempAngle > 360.0) tempAngle -= 360.0;
+           if (tempAngle < 0.0) tempAngle += 360.0;
     
-         xValBullet = temp_x;
-         zValBullet = temp_z;
-         angleBullet = tempAngle;
-         glutPostRedisplay();                                  
+           xValSpacecraftBullet = temp_x;
+           zValSpacecraftBullet = temp_z;
+           angleSpacecraftBullet = tempAngle;
+           glutPostRedisplay();                                  
      }
-     if(zValBullet < -300.0){
-           zValBullet = zVal;
-           xValBullet = xVal;
-           isShotting = 1;
-           glDeleteLists(bullet + numShots, 1);
-	  } 
-     if(asteroidCraftCollision(xValBullet,zValBullet,1.0)){
-           printf("Alien Destroyed\n");                                                
-           zValBullet = zVal;
-           xValBullet = xVal;
+     
+     if(zValSpacecraftBullet == -300.0){
+           zValSpacecraftBullet = zVal;
+           xValSpacecraftBullet = xVal;
            isShotting = 0;
-           glDeleteLists(bullet + numShots, 1);
+           playerShotDelay = 0;
+           glDeleteLists(bulletSpacecraft + shotsSpacecraft, 1);
+           glutPostRedisplay();
+     }
+       
+     if(asteroidCraftCollision(xValSpacecraftBullet,zValSpacecraftBullet,1.0)){
+           printf("Alien Destroyed\n");                                                
+           zValSpacecraftBullet = zVal;
+           xValSpacecraftBullet = xVal;
+           isShotting = 0;
+           glDeleteLists(bulletSpacecraft + shotsSpacecraft, 1);
            NumAliens--;
            points+=10;
+           glutPostRedisplay();
+           
      }
+     //Make a translation for an alien's shot.
+     //
+     if(alienShotDelay == ALIEN_SHOT_DELAY){
+                       
+           shotsAliens++;            
+           int alienShot_increment = 8;            
+           alienShotting = 1;
+           
+           alienShotDelay = 0;                                              
+                                              
+           float temp_x_alien = xValAlienBullet, temp_z_alien = zValAlienBullet, tempAngle_alien = angle;
+         
+           temp_x_alien = xValAlienBullet + sin(angleAlienBullet * PI/180.0);
+           temp_z_alien = zValAlienBullet + alienShot_increment + cos(angleAlienBullet * PI/180.0);
+           tempAngle_alien = angleAlienBullet;
+         
+           if (tempAngle_alien > 360.0) tempAngle_alien -= 360.0;
+           if (tempAngle_alien < 0.0) tempAngle_alien += 360.0;
+    
+           xValAlienBullet = temp_x_alien;
+           zValAlienBullet = temp_z_alien;
+           angleAlienBullet = tempAngle_alien;
+                      
+           glutPostRedisplay();           
+     }
+          
+     //Updates the alien's shot
+     //
+     if(zValAlienBullet > 800.0 || alienShotDelay > ALIEN_SHOT_DELAY){
+           alienShotting = 0;            
+           alienShotDelay = 0;
+           vector<float> axis = alienPosition();
+           xValAlienBullet = 0;
+           zValAlienBullet = 0;
+           angleAlienBullet = 0;
+//           glDeleteLists(bulletAlien + shotsAliens, 1);
+           alienShot(axis[0], axis[1], axis[2]);
+           glutPostRedisplay();
+     }
+     //Function for the collision with the spacecraft (Debbuging) 
+//     if(checkSpheresIntersection(xVal, 0.0, zVal, 7.0, axis_alien[0], axis_alien[1], axis_alien[2], actual_alien_radius) == 1){
+//           glDeleteLists(spacecraft, 1);
+//           game_over = 1;
+//           glutPostRedisplay();
+//                                       
+//     }
 }
      
 // Drawing routine.
@@ -386,16 +453,6 @@ void drawScene(void)
    // Begin left viewport.
    glViewport (0, 0, width,  height); 
    glLoadIdentity();
-
-   // Write text in isolated (i.e., before gluLookAt) translate block.
-//   glPushMatrix();
-//   glColor3f(1.0, 0.0, 0.0);
-//   glRasterPos3f(-28.0, 25.0, -30.0);
-//   glRasterPos3f(-28.0, 23.0, -30.0);
-//   char *intstr = itoa(points, intstr, 10);
-//   std::string pontuation = "Pontuation:\n" + points; 
-//   writeBitmapString((void*)font, *intstr);
-//   glPopMatrix();
    
    glPushMatrix();
    glColor3f(1.0, 1.0, 1.0);
@@ -403,16 +460,22 @@ void drawScene(void)
    glRasterPos3f(-5.0, 23.0, -30.0);
    if (!NumAliens) writeBitmapString((void*)font, "YOU WIN!!!!!");
    glPopMatrix();
-   
+
+   glPushMatrix();
+   glColor3f(1.0, 1.0, 1.0);
+   glRasterPos3f(-5.0, 25.0, -30.0);
+   glRasterPos3f(-5.0, 23.0, -30.0);
+   if (game_over) writeBitmapString((void*)font, "YOU LOOSE!!!!!");
+   glPopMatrix();   
 
    // Fixed camera.
 //   gluLookAt(0.0, 10.0, 20.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0);
-	gluLookAt(xVal - 100 * sin( (PI/180.0) * angle), 
+	gluLookAt(xVal - 100 * sin((PI/180.0) * angle), 
 	         30.0, 
-			 	zVal + 50 * cos( (PI/180.0) * angle),
-				xVal + 2 * sin( (PI/180.0) * angle),
+			 	zVal + 50 * cos((PI/180.0) * angle),
+				xVal + 2 * sin((PI/180.0) * angle),
 			 	0.0,
-            zVal + 2 * cos( (PI/180.0) * angle),
+            zVal + 2 * cos((PI/180.0) * angle),
 				0.0, 1.0, 0.0);
  
    // Draw all the asteroids in arrayAsteroids.
@@ -428,9 +491,13 @@ void drawScene(void)
    glPopMatrix();
    
    addBullet();
-   
-   printf("xVal -> %0.2f zVal -> %0.2f xBullet -> %0.2f zBullet -> %0.2f %d\n", xVal, zVal, xValBullet, zValBullet, NumAliens);
-
+   vector<float> axis = alienPosition();
+   axis_alien = axis;
+   shotsAliens++;
+   alienShot(axis[0], axis[1], axis[2]);
+//   alienShot(arrayAsteroids[0][0].getCenterX(), arrayAsteroids[0][0].getCenterY(), arrayAsteroids[0][0].getCenterZ());
+   printf("xAlienShot -> %0.2f zAlienShot -> %0.2f AlienDelay -> %d AlienShots -> %d\n", 
+          xValAlienBullet, zValAlienBullet, alienShotDelay, shotsAliens);
    glutSwapBuffers();
 }
 
@@ -459,7 +526,7 @@ void keyInput(unsigned char key, int x, int y)
          break;
       case 32:
           isShotting = 1;
-          numShots++;
+          shotsSpacecraft++;
           addBullet();
          break;     
       default:
@@ -474,8 +541,8 @@ void specialKeyInput(int key, int x, int y)
    float x_increment = 0.0;
 
    // Compute next position.
-   if (key == GLUT_KEY_PAGE_DOWN) tempAngle = angle + 5.0; //turn clockwise
-   if (key == GLUT_KEY_PAGE_UP) tempAngle = angle - 5.0; //turn counter-clockwise
+   if(key == GLUT_KEY_PAGE_DOWN) tempAngle = angle + 5.0; //turn clockwise
+   if(key == GLUT_KEY_PAGE_UP) tempAngle = angle - 5.0; //turn counter-clockwise
    
    if(key == GLUT_KEY_LEFT) //Modification on the left movement 
    {
@@ -487,12 +554,12 @@ void specialKeyInput(int key, int x, int y)
 	  tempxVal = xVal + x_increment + cos(angle * PI/180.0); 
 	  tempzVal = zVal + sin(angle * PI/180.0);
    }  
-   if( key == GLUT_KEY_UP)
+   if(key == GLUT_KEY_UP)
    {
 	  tempxVal = xVal - sin(angle * PI/180.0); 
 	  tempzVal = zVal - cos(angle * PI/180.0);
    }
-   if( key == GLUT_KEY_DOWN)
+   if(key == GLUT_KEY_DOWN)
    {
 	  tempxVal = xVal + sin(angle * PI/180.0); 
 	  tempzVal = zVal + cos(angle * PI/180.0);
@@ -509,9 +576,9 @@ void specialKeyInput(int key, int x, int y)
 	      isCollision = 0;
 	      xVal = tempxVal;
 		   zVal = tempzVal;
-		   zValBullet = tempzVal;
-		   xValBullet = tempxVal;
-		   angleBullet = tempAngle;
+		   zValSpacecraftBullet = tempzVal;
+		   xValSpacecraftBullet = tempxVal;
+		   angleSpacecraftBullet = tempAngle;
 		   angle = tempAngle;
 		}
 		else{
@@ -540,8 +607,8 @@ int main(int argc, char **argv)
    printInteraction();
    glutInit(&argc, argv);
    glutInitDisplayMode(GLUT_DOUBLE | GLUT_RGB | GLUT_DEPTH); 
-   glutInitWindowSize(880, 550);
-   glutInitWindowPosition(200, 80); 
+   glutInitWindowSize(400, 400);
+   glutInitWindowPosition(0, 0); 
    glutCreateWindow("Space Travel.cpp");
    setup(); 
    glutDisplayFunc(drawScene); 
