@@ -1,6 +1,3 @@
-//Working fine!!!
-//Adds sound and background
-
 #include <cstdlib>
 #include <stdio.h>
 #include <string>
@@ -21,10 +18,10 @@
 
 #define ALIEN_TRANSLATE_DELAY 500000 //Delay for the alien's movement
 #define BULLETSQUANT 1000000000 //Num of bullets
-#define ALIEN_SHOT_DELAY 100000 //Delay for the alien's shot
+#define ALIEN_SHOT_DELAY 50000 //Delay for the alien's shot
 #define PLAYER_SHOT_DELAY 100 //Delay for the spacecraft's shot
-#define ROWS 2  // Number of rows of Aliens.
-#define COLUMNS 2 // Number of columns of Aliens.
+#define ROWS 4  // Number of rows of Aliens.
+#define COLUMNS 4 // Number of columns of Aliens.
 #define FILL_PROBABILITY 100 // Percentage probability that a particular row-column slot will be 
                              // filled with an Alien. It should be an integer between 0 and 100.
 
@@ -57,22 +54,20 @@ int alienShotDelay = 0;		//Counter for the alien's shot delay
 int alienMovementDelay = 0; //Similar to anterior, but related to movement
 vector<float> axis_alien;   //Used to verify collision with an bullet
 vector<float> axis_alien_shot; //same as anterior
-float actual_alien_radius = 0.0; //
-float aliens_radius = 3.0;
-float alien_translate = 0.1; //0.1
-float alien_rotate = 0.0;
-float translate_increment = 4.0;
-float lower_translate = -8.0;
-float upper_translate = 8.0;
-int alienMovements = 0;
+float aliens_radius = 3.0;	   //Set the alien's radius. Used for the collision
+float alien_translate = 0.1; //Used for the alien's movement
+float translate_increment = 4.0; //Translate increment
+float lower_translate = -8.0; //Boundaries for the movement
+float upper_translate = 8.0;  //
+int alienMovements = 0;       //Flag used for the movement
 
-Mix_Chunk *alienShotEffect = NULL;
-Mix_Chunk *spacecraftShotEffect = NULL;
-
+Mix_Chunk *alienShotEffect = NULL;      //
+Mix_Chunk *spacecraftShotEffect = NULL; //Used for the sounds effects
+Mix_Chunk *win = NULL;      //
+Mix_Chunk *gameOver = NULL; //
 
 int NumAliens = ROWS * COLUMNS;
 int points = 0;
-
 
 // Routine to draw a bitmap character string.
 void writeBitmapString(void *font, char *string)
@@ -135,54 +130,46 @@ void Alien::draw()
    {
       glPushMatrix();
       glTranslatef(centerX, centerY, centerZ);
-      glRotatef(alien_rotate, 0.0, 1.0, 0.0);
       glColor3ubv(color);
       glutSolidSphere(radius, (int)radius*6, (int)radius*6); //First Sphere
       glPopMatrix();
       glPushMatrix();
       glTranslatef(centerX + 0.2, centerY + 2.5, centerZ);
-      glRotatef(alien_rotate, 0.0, 1.0, 0.0);
       glColor3ubv(color);
       glutSolidCone(radius, 10.0, 5, 20);//Front Cone
       glPopMatrix();
       glPushMatrix();
       glTranslatef(centerX, centerY + 2.0, centerZ);
-      glRotatef(alien_rotate, 0.0, 1.0, 0.0);
       glColor3ubv(color);
       glutSolidSphere(radius, (int)radius*6, (int)radius*6);//Second Sphere
       glPopMatrix();
       glPushMatrix();
       glTranslatef(centerX + 0.2, centerY + 2.5, centerZ);
       glRotatef((GLfloat) (100 % 360), 0.0, 1.0, 0.0);
-      glRotatef(alien_rotate, 0.0, 1.0, 0.0);
       glColor3ubv(color);
       glutSolidCone(radius, 10.0, 5, 20);//RigthCone
       glPopMatrix();
       glPushMatrix();
       glTranslatef(centerX + 0.2, centerY + 2.5, centerZ);
       glRotatef((GLfloat) (-100 % 360), 0.0, 1.0, 0.0);
-      glRotatef(alien_rotate, 0.0, 1.0, 0.0);
       glColor3ubv(color);
       glutSolidCone(radius, 10.0, 5, 20);//Left Cone
       glPopMatrix();
       glPushMatrix();
       glTranslatef(centerX + 0.2, centerY + 2.5, centerZ);//Up Cone
       glRotatef((GLfloat) (-100 % 360), 1.0, 0.0, 0.0);
-      glRotatef(alien_rotate, 0.0, 1.0, 0.0);
       glColor3ubv(color);
       glutSolidCone(radius, 10.0, 5, 20);
       glPopMatrix();
       glPushMatrix();
       glTranslatef(centerX + 0.2, centerY + 2.5, centerZ);//Up Cone
       glRotatef((GLfloat) (50 % 360), 0.0, 0.0, 1.0);
-      glRotatef(alien_rotate, 0.0, 1.0, 0.0);
       glColor3ubv(color);
       glutSolidCone(radius, 10.0, 5, 20);
       glPopMatrix();                        
       glPushMatrix();
       glTranslatef(centerX + 0.2, centerY + 2.5, centerZ);
       glRotatef((GLfloat) (100 % 360), 1.0, 0.0, 0.0);
-      glRotatef(alien_rotate, 0.0, 1.0, 0.0);
       glColor3ubv(color);
       glutSolidCone(radius, 10.0, 5, 20);//Low Cone
       glPopMatrix();      
@@ -191,7 +178,7 @@ void Alien::draw()
 
 Alien arrayAliens[ROWS][COLUMNS]; // Global array of Aliens.
 
-void loadSounds(void){
+void loadSounds(void){//Load sounds effects
 	 
 	  alienShotEffect = Mix_LoadWAV("blast.wav"); 
 	  if(alienShotEffect == NULL) 
@@ -199,8 +186,32 @@ void loadSounds(void){
 			 
       spacecraftShotEffect = Mix_LoadWAV("blast.wav"); 
 	  if(spacecraftShotEffect == NULL) 
-	  	  printf("Failed to load spacecraft sound effect! SDL_mixer Error: %s\n", Mix_GetError()); 
+	  	  printf("Failed to load spacecraft sound effect! SDL_mixer Error: %s\n", Mix_GetError());
+
+	  win = Mix_LoadWAV("Win.wav"); 
+	  if(win == NULL) 
+	  	  printf("Failed to load winning effect! SDL_mixer Error: %s\n", Mix_GetError());
+			 
+      gameOver = Mix_LoadWAV("GameOver.wav"); 
+	  if(gameOver == NULL) 
+	  	  printf("Failed to load game over sound effect! SDL_mixer Error: %s\n", Mix_GetError()); 
+	   
 }
+
+void drawSpacecraft(void){
+   glPushMatrix();
+   glTranslatef(xVal, 0.0, zVal);
+   glRotatef(angle, 0.0, 1.0, 0.0);
+   glCallList(spacecraft);
+   glPopMatrix();
+}
+
+void drawAliens(void){
+   for (register int j = 0; j < COLUMNS; j++)	  
+      for (register int i = 0; i < ROWS; i++)
+         arrayAliens[i][j].draw();
+}
+
 // Initialization routine.
 void setup(void) 
 {
@@ -215,7 +226,7 @@ void setup(void)
 
    int i, j;
 
-   spacecraft = glGenLists(1);
+   spacecraft = glGenLists(1);//create a display lists for the spacecraft
    glNewList(spacecraft, GL_COMPILE);
 	  glPushMatrix();
 	  glTranslatef(0.0, 0.0, 35.0);
@@ -248,7 +259,7 @@ void setup(void)
 	  glPopMatrix();
    glEndList();
    
-   bulletSpacecraft = glGenLists(BULLETSQUANT);
+   bulletSpacecraft = glGenLists(BULLETSQUANT); //create the display lists for the bullets
    glNewList(bulletSpacecraft, GL_COMPILE);
 	  glPushMatrix();
 	  glColor3f (1.0, 1.0, 1.0); 
@@ -256,7 +267,7 @@ void setup(void)
 	  glPopMatrix();
    glEndList();
    
-   bulletAlien = glGenLists(BULLETSQUANT);
+   bulletAlien = glGenLists(BULLETSQUANT); //same as above
    glNewList(bulletAlien, GL_COMPILE);
       glPushMatrix();
       glColor3f(0.0, 1.0, 1.0);
@@ -312,7 +323,7 @@ int AlienCraftCollision(float x, float z, float a)
 		         z + 20 * cos((PI/180.0) * a), 7.0,
 		         arrayAliens[i][j].getCenterX(), arrayAliens[i][j].getCenterY(), 
 		         arrayAliens[i][j].getCenterZ(), arrayAliens[i][j].getRadius())){
-                                                    
+
                  arrayAliens[i][j].setRadius(0.0);//Alien is deleted
                  return 1;
                  }   
@@ -330,8 +341,8 @@ void addBullet(void){ //Adds a bullet for the spacecraft
      
      glPushMatrix();
      glTranslatef(0.0, 0.0, 32.0);
-     glTranslatef(isShotting ? xValSpacecraftBullet : xVal, 0.0, 
-                isShotting ? zValSpacecraftBullet : zVal);
+     glTranslatef(isShotting ? xValSpacecraftBullet : xVal, 0.0, //Control the xVal of the bullet 
+                isShotting ? zValSpacecraftBullet : zVal);		 //according with the spacecraft position
      glRotatef(angleSpacecraftBullet, 0.0, 1.0, 0.0);
      glCallList(bulletSpacecraft + shotsSpacecraft);
      glPopMatrix();
@@ -349,14 +360,13 @@ vector<float> alienPosition(){//Returns an aliens's coordinate.
 			row = (int)(rand() % ROWS);
 			cols = (int)(rand() % COLUMNS);
 	  } 
-     actual_alien_radius = arrayAliens[row][cols].getRadius();
      axis[0] = arrayAliens[row][cols].getCenterX();
      axis[1] = arrayAliens[row][cols].getCenterY();
      axis[2] = arrayAliens[row][cols].getCenterZ();     
      return axis;
 }
 
-void updateAlienCenterX(){
+void updateAlienCenterX(){ //Updates the alien's coordinates according with it's movements
      for(int i = 0; i < ROWS; i++){
 		  for(int j = 0; j < COLUMNS; j++){
 			  arrayAliens[i][j].setCenterX(arrayAliens[i][j].getCenterX() + alien_translate);
@@ -474,7 +484,7 @@ void idle(void){//Idle function for the Glut. Updates the shots for spacecraft a
            glutPostRedisplay();           
      }
           
-     //Updates the alien's shot (Debugging)
+     //Updates the alien's shot 
      //
      if(NumAliens > 0 && (zValAlienBullet > maxZSpacecraft || alienShotDelay > ALIEN_SHOT_DELAY)){
            alienShotDelay = 0;
@@ -486,7 +496,7 @@ void idle(void){//Idle function for the Glut. Updates the shots for spacecraft a
            alienShot(axis[0], axis[1], axis[2]);
            glutPostRedisplay();
      }
-     //Function for the collision with the spacecraft (Debbuging - Fix the collision with the spacecraft) 
+     //Function for the collision with the spacecraft 
      if(checkSpheresIntersection(xVal, 0.0, maxZSpacecraft, 2.0, xValAlienBullet, 0.0, zValAlienBullet, 1.0) == 1){
            glDeleteLists(spacecraft, 1);
            game_over = 1;
@@ -557,11 +567,6 @@ void drawScene(void)
 
    glMaterialfv(GL_FRONT, GL_SPECULAR, specularity);
    glMateriali(GL_FRONT, GL_SHININESS, spec_material);
-//   glLightModelfv(GL_LIGHT_MODEL_AMBIENT, ambient_light);
-   
-//   glLightfv(GL_LIGHT0, GL_AMBIENT, ambient_light);
-//   glLightfv(GL_LIGHT0, GL_DIFFUSE, diffuse_light);
-//   glLightfv(GL_LIGHT0, GL_SPECULAR, specular_light);
    glLightfv(GL_LIGHT0, GL_POSITION, light_position);
    glColorMaterial(GL_FRONT, GL_AMBIENT_AND_DIFFUSE); 
    glEnable(GL_COLOR_MATERIAL);    
@@ -584,15 +589,26 @@ void drawScene(void)
    glPushMatrix();
    glColor3f(1.0, 1.0, 1.0);
    glRasterPos3f(-5.0, 26.0, -30.0);
-   if (!NumAliens) writeBitmapString((void*)font, "YOU WIN!!!!!");
+   if(!NumAliens){ 
+      writeBitmapString((void*)font, "YOU WIN!!!!!");
+      Mix_PlayChannel(-1, win, 0);
+   }
    glPopMatrix();
 
    glPushMatrix();
    glColor3f(1.0, 1.0, 1.0);
    glRasterPos3f(-5.0, 26.0, -30.0);
-   if (game_over) writeBitmapString((void*)font, "YOU LOOSE!!!!!");
+   if(game_over) writeBitmapString((void*)font, "YOU LOOSE!!!!!");  
+   glPopMatrix();
+      
+
+   glPushMatrix();
+   glColor3f(1.0, 1.0, 1.0);
+   glRasterPos3f(-15.0, 6.0, -30.0);
+   if(game_over) writeBitmapString((void*)font, "PRESS ESC TO EXIT.");
    glPopMatrix();   
 
+   
    //The gluLookAt values are calculated to make the camera "follow" the spacecraft.
 	gluLookAt(xVal - 100 * sin((PI/180.0) * (angle)), 
 	         30.0, 
@@ -602,17 +618,9 @@ void drawScene(void)
             zVal + 2 * (cos((PI/180.0) * (angle))),
 				0.0, 1.0, 0.0);
  
-   // Draw all the Aliens in arrayAliens.
-   for (j = 0; j < COLUMNS; j++)	  
-      for (i = 0; i < ROWS; i++)
-         arrayAliens[i][j].draw();
-
+   drawAliens();
+   drawSpacecraft();
    // Draw spacecraft.
-   glPushMatrix();
-   glTranslatef(xVal, 0.0, zVal);
-   glRotatef(angle, 0.0, 1.0, 0.0);
-   glCallList(spacecraft);
-   glPopMatrix();
    
    if(!game_over) addBullet();
    
@@ -632,7 +640,6 @@ void drawScene(void)
    axis_alien = axis_alien_shot;
    shotsAliens++;
    alienShot(axis_alien_shot[0], axis_alien_shot[1], axis_alien_shot[2]);
-   if(!game_over) Mix_PlayChannel(-1, alienShotEffect, 0);
    glutSwapBuffers();
 }
 
@@ -660,12 +667,11 @@ void keyInput(unsigned char key, int x, int y)
          exit(0);
          break;
       case 32:
-          if(!game_over){  
+          if(!game_over){
              isShotting = 1;
              shotsSpacecraft++;
              addBullet();
-             Mix_PlayChannel(-1, spacecraftShotEffect, 0);
-          }   
+          }
          break;     
       default:
          break;
@@ -732,9 +738,9 @@ int main(int argc, char **argv)
    printInteraction();
    glutInit(&argc, argv);
    glutInitDisplayMode(GLUT_DOUBLE | GLUT_RGB | GLUT_DEPTH); 
-   glutInitWindowSize(600, 400);
-   glutInitWindowPosition(0, 0); 
-   glutCreateWindow("Space Travel.cpp");
+   glutInitWindowSize(600, 450);
+   glutInitWindowPosition(300, 150); 
+   glutCreateWindow("Space Invaders 3D OpenGL.cpp");
    setup(); 
    glutDisplayFunc(drawScene); 
    glutReshapeFunc(resize);  
@@ -742,6 +748,9 @@ int main(int argc, char **argv)
    glutSpecialFunc(specialKeyInput);
    glutIdleFunc(idle);
    glutMainLoop();
+   
+//   if(game_over) Mix_PlayChannel(-1, gameOver, 0);
+   if(!NumAliens) Mix_PlayChannel(-1, win, 0);
    
    Mix_FreeChunk(alienShotEffect); 
    Mix_FreeChunk(spacecraftShotEffect);

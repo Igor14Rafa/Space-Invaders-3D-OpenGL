@@ -2,5 +2,3 @@ Press space to shot
 Left/Right arrow -> move left/right
 Each alien cost 10 points
 Good Luck
-Alien Destroyed
-Alien Destroyed
